@@ -17,19 +17,23 @@ from model import build_model
 
 
 class GradCAM:
+    """
+    Grad-CAM using a forward hook + retain_grad() rather than a backward
+    hook. DenseNet applies an in-place ReLU immediately after the layer we
+    hook, which conflicts with register_full_backward_hook's autograd
+    wrapping (PyTorch raises a "view is being modified in-place" error).
+    retain_grad() sidesteps this entirely and is the more robust approach.
+    """
+
     def __init__(self, model, target_layer):
         self.model = model
         self.model.eval()
         self.activations = None
-        self.gradients = None
         target_layer.register_forward_hook(self._save_activation)
-        target_layer.register_full_backward_hook(self._save_gradient)
 
     def _save_activation(self, module, input, output):
-        self.activations = output.detach()
-
-    def _save_gradient(self, module, grad_input, grad_output):
-        self.gradients = grad_output[0].detach()
+        self.activations = output
+        self.activations.retain_grad()
 
     def generate(self, input_tensor, class_idx):
         self.model.zero_grad()
@@ -37,9 +41,10 @@ class GradCAM:
         score = logits[0, class_idx]
         score.backward()
 
+        gradients = self.activations.grad
         # Global-average-pool the gradients -> channel weights
-        weights = self.gradients.mean(dim=(2, 3), keepdim=True)
-        cam = (weights * self.activations).sum(dim=1, keepdim=True)
+        weights = gradients.mean(dim=(2, 3), keepdim=True)
+        cam = (weights * self.activations.detach()).sum(dim=1, keepdim=True)
         cam = F.relu(cam)
         cam = cam.squeeze().cpu().numpy()
         cam = cam - cam.min()

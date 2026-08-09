@@ -20,14 +20,23 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
 
-# Pick a small, clinically meaningful subset of conditions.
-# Keep this list short (4-6 classes) -- CPU training time scales with it.
+# Selected based on per-class support in the NIH sample set: everything here
+# has >=140 positive examples except Pneumonia (62), which is kept despite
+# being rarer because it's central to the project's clinical narrative --
+# pos_weight-based class balancing (see train.py) helps compensate.
+# Dropped for insufficient data: Emphysema, Edema, Fibrosis, Hernia.
 CONDITIONS = [
     "No Finding",
-    "Pneumonia",
-    "Effusion",
-    "Cardiomegaly",
     "Infiltration",
+    "Effusion",
+    "Atelectasis",
+    "Nodule",
+    "Mass",
+    "Pneumothorax",
+    "Consolidation",
+    "Pleural_Thickening",
+    "Cardiomegaly",
+    "Pneumonia",
 ]
 
 IMAGE_SIZE = 224
@@ -89,8 +98,8 @@ def sanity_check(csv_path, image_dir):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
-    parser.add_argument("--csv", default="data/nih_sample/labels.csv")
-    parser.add_argument("--images", default="data/nih_sample/images")
+    parser.add_argument("--csv", default=r"D:\Datasets\nih\sample_labels.csv")
+    parser.add_argument("--images", default=r"D:\Datasets\nih\sample\images")
     args = parser.parse_args()
 
     if args.check:
